@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>gameBreakoutPhaser2</title>
+    <style>* { padding: 0; margin: 0;} body { background: #ddd; }</style>
+    <script src="js/phaser.js"></script>
+</head>
+<body>
+<script>
+    var game = new Phaser.Game(580, 420, Phaser.AUTO, 'breakout', {
+        preload: preload, create: create, update: update
+    });
+
+    var ball;
+    var paddle;
+    var bricks;
+    var newBrick;
+    var brickInfo;
+
+//    var mouse;
+
+    function preload() {
+        //configuration
+        game.scale.scaleMode = Phaser.ScaleManager.NO_SCALE;
+        //shaders
+//        game.load.shader('bacteria', 'shaders/bacteria.frag');
+//        game.world.setBounds(0, 0, 580, 420);
+        game.scale.pageAlignHorizontally = true;
+        game.scale.pageAlignVertically = true;
+        game.stage.backgroundColor = '#aaa';
+        //ball
+        game.load.image('ball', 'img/ball.png');
+        //paddle
+        game.load.image('paddle', 'img/paddle.png');
+        //brick
+        game.load.image('brick', 'img/brick.png');
+    }
+    function create() {
+        //shaders
+//        filter = new Phaser.Filter(game, null, game.cache.getShader('bacteria'));
+//        filter.addToWorld(0, 0, 800, 600);
+
+
+        //physics
+        game.physics.startSystem(Phaser.Physics.P2JS);
+        game.physics.p2.restitution = 1;
+
+        //gravity
+        game.physics.p2.gravity.y = 200;
+
+        //collision
+        //Turn on impact events for the world, without this we get no collision callbacks
+        game.physics.p2.setImpactEvents(true);
+        //  Create our collision groups. One for the player, one for the pandas
+        var ballCollisionGroup = game.physics.p2.createCollisionGroup();
+        var brickCollisionGroup = game.physics.p2.createCollisionGroup();
+        var paddleCollisionGroup = game.physics.p2.createCollisionGroup();
+        game.physics.p2.updateBoundsCollisionGroup();
+
+        //ball
+        ball = game.add.sprite(game.world.width*0.5, game.world.height-200, 'ball');
+        ball.smoothed = false;
+        game.physics.p2.enable(ball);
+        ball.body.setCircle(10);
+        ball.body.kinematic = false;
+//
+        ball.body.setCollisionGroup(ballCollisionGroup);
+        ball.body.collides(brickCollisionGroup, hitBrick, this);
+        ball.body.collides(paddleCollisionGroup, hitPaddle, this);
+
+
+//        ball.body.velocity.x = 200;
+        ball.body.velocity.y = 200;
+//        ball.body.collideWorldBounds = true;
+//        ball.body.data.gravityScale = 1;
+//        ball.body.damping = -0.2;
+
+//        ball.body.damping = -0.5; //bounce without loosing velocity
+
+
+
+        //paddle
+        paddle = game.add.sprite(game.world.width*0.5, game.world.height-5, 'paddle');
+        paddle.smoothed = false;
+        game.physics.p2.enable(paddle);
+        paddle.anchor.set(0.5,0.5);
+        paddle.body.kinematic = false;
+        paddle.body.collideWorldBounds = true;
+        paddle.body.data.gravityScale = 0;
+        paddle.body.setCollisionGroup(paddleCollisionGroup);
+        paddle.body.collides([ballCollisionGroup, paddleCollisionGroup]);
+        paddle.body.collides([brickCollisionGroup, paddleCollisionGroup]);
+        paddle.body.fixedRotation = true;
+
+        //bricks
+        initBricks(ballCollisionGroup, brickCollisionGroup, paddleCollisionGroup);
+
+        //material
+        var paddleMaterial = game.physics.p2.createMaterial('paddleMaterial', paddle.body);
+        var ballMaterial = game.physics.p2.createMaterial('ballMaterial', ball.body);
+
+        var contactMaterial = game.physics.p2.createContactMaterial(paddleMaterial, ballMaterial);
+//        contactMaterial.friction = 0.3;     // Friction to use in the contact of these two materials.
+        contactMaterial.restitution = 2.0;  // Restitution (i.e. how bouncy it is!) to use in the contact of these two materials.
+//        contactMaterial.stiffness = 1e7;    // Stiffness of the resulting ContactEquation that this ContactMaterial generate.
+//        contactMaterial.relaxation = 3;     // Relaxation of the resulting ContactEquation that this ContactMaterial generate.
+//        contactMaterial.frictionStiffness = 1e7;    // Stiffness of the resulting FrictionEquation that this ContactMaterial generate.
+//        contactMaterial.frictionRelaxation = 3;     // Relaxation of the resulting FrictionEquation that this ContactMaterial generate.
+//        contactMaterial.surfaceVelocity = 0;        // Will add surface velocity to this material. If bodyA rests on top if bodyB, and the surface velocity is positive, bodyA will slide to the right.
+
+        //move
+        cursors = game.input.keyboard.createCursorKeys();
+
+//        mouse = game.input.mouse.createCursorKeys();
+    }
+    function update() {
+        //shader
+//        filter.update();
+
+//        ball.body.setZeroVelocity();
+
+        //collide
+//        game.physics.p2.collide(ball, paddle);
+//        game.physics.p2.collide(ball, bricks);
+//        game.physics.p2.collide(bricks, bricks);
+        //moving
+//        console.log(mouse);
+//        paddle.x = game.input.x || game.world.width*0.5;
+
+        paddle.body.setZeroVelocity();
+
+        if (cursors.left.isDown)
+        {
+            paddle.body.moveLeft(200);
+        }
+        else if (cursors.right.isDown)
+        {
+            paddle.body.moveRight(200);
+        }
+//        else if (cursors.down.isDown)
+//        {
+//            paddle.body.moveDown(200);
+//        }
+//        else if (cursors.up.isDown)
+//        {
+//            paddle.body.moveUp(200);
+//        }
+    }
+    function render () {
+        game.debug.inputInfo(32, 32);
+    }
+    function initBricks(ballCollisionGroup, brickCollisionGroup, paddleCollisionGroup) {
+        brickInfo = {
+            width: 50,
+            height: 20,
+            count: {
+                row: 7,
+                col: 3
+            },
+            offset: {
+                top: 50,
+                left: 60
+            },
+            padding: 10
+        };
+
+        bricks = game.add.group();
+        bricks.enableBody = true;
+        bricks.physicsBodyType = Phaser.Physics.P2JS;
+
+
+        for(c=0; c<brickInfo.count.col; c++) {
+            for(r=0; r<brickInfo.count.row; r++) {
+                //location
+                var brickX = (r*(brickInfo.width+brickInfo.padding))+brickInfo.offset.left;
+                var brickY = (c*(brickInfo.height+brickInfo.padding))+brickInfo.offset.top;
+
+                //create brick
+                newBrick = bricks.create(brickX, brickY, 'brick');
+//                newBrick.body.setRectangle(40, 40);
+                newBrick.body.setCollisionGroup(brickCollisionGroup);
+                newBrick.body.collides([ballCollisionGroup, brickCollisionGroup]);
+                newBrick.body.collides([paddleCollisionGroup, brickCollisionGroup]);
+                newBrick.body.damping = 0.8;
+                newBrick.body.data.gravityScale = 0;
+
+                //use brickCollisionGroup
+
+
+//                newBrick = game.add.sprite(brickX, brickY, 'brick');
+//                game.physics.enable(newBrick, Phaser.Physics.P2JS);
+//                newBrick.body.immovable = true;
+//                newBrick.anchor.set(0.5);
+//                bricks.add(newBrick);
+            }
+        }
+    }
+    function hitBrick(ball, brick) {
+
+        brick.sprite.alpha -= 0.2;
+        if(brick.sprite.alpha < 0.2) {
+            brick.sprite.kill();
+        }
+
+//        console.log(bricks.countLiving());
+    }
+
+    function hitPaddle(ball, paddle) {
+
+//        var diff = 0;
+//
+//        if (ball.x < paddle.x)
+//        {
+//            //  Ball is on the left-hand side of the paddle
+//            diff = paddle.x - ball.x;
+//            ball.velocity.x = (-10 * diff);
+//        }
+//        else if (ball.x > paddle.x)
+//        {
+//            //  Ball is on the right-hand side of the paddle
+//            diff = ball.x -paddle.x;
+//            ball.velocity.x = (10 * diff);
+//        }
+//        else
+//        {
+//            //  Ball is perfectly in the middle
+//            //  Add a little random X to stop it bouncing straight up!
+//            ball.velocity.x = 2 + Math.random() * 8;
+//        }
+
+
+        console.log(ball.velocity.x);
+
+
+
+//        console.log(paddle.x-ball.x);
+//        ball.velocity.x *= -1*2*(paddle.x-ball.x);
+
+//        var limitSpeedP2JS = function(p2Body, maxSpeed) {
+//            var x = p2Body.velocity.x;
+//            var y = p2Body.velocity.y;
+//
+//            if (Math.pow(x, 2) + Math.pow(y, 2) > Math.pow(maxSpeed, 2)) {
+//                var a = Math.atan2(y, x);
+//                x = -20 * Math.cos(a) * maxSpeed;
+//                y = -20 * Math.sin(a) * maxSpeed;
+//                p2Body.velocity.x = x;
+//                p2Body.velocity.y = y;
+//            }
+//
+//            return p2Body;
+//
+//        }
+
+//        var x = ball.velocity.x;
+//        var y = ball.velocity.y;
+//        var maxSpeed = 25;
+//
+//            if (Math.pow(x, 2) + Math.pow(y, 2) > Math.pow(maxSpeed, 2)) {
+//                var a = Math.atan2(y, x);
+//                x = 20 * Math.cos(a) * maxSpeed;
+//                y = -20 * Math.sin(a) * maxSpeed;
+//                ball.velocity.x = x;
+//                ball.velocity.y = y;
+//            }
+
+//            return p2Body;
+
+
+
+//        console.log(ball);
+
+//        ball.thrust(1000);
+
+
+        //increase speed after hit paddle
+//        ball.velocity.x += 150;
+//        ball.velocity.y += -50;
+
+//        console.log(paddle.x);
+//        console.log(ball.x);
+
+
+//        if(ball.velocity.x > -700 && ball.velocity.x < 700) {
+//            ball.velocity.x *= 1.5;
+//        }
+
+//        if (ball.velocity.x > -50 && ball.velocity.x < 50) {
+//            ball.velocity.x *= 1.5
+//            ball.velocity.x += 10
+//            ball.velocity.y += 10
+//        } else {
+//            ball.velocity.x = -1*10*(paddle.x-ball.x);
+//        }
+
+
+        console.log(ball.velocity.x);
+
+        console.log(ball.velocity.x);
+        console.log(ball.velocity.y);
+    }
+
+</script>
+</body>
+</html>
